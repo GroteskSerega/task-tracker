@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:6.0.8
+    networks:
+      - task-tracker
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: appdatabase
+
+  task-tracker:
+    image: task-tracker
+    networks:
+      - task-tracker
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_SERVER_PORT=8080
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DBNAME=appdatabase
+      - MONGODB_USER=root
+      - MONGODB_PASSWORD=root
+    depends_on:
+      - mongodb
+
+networks:
+  task-tracker:
