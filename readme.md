@@ -96,7 +96,7 @@ docker build -f Dockerfile_axiom -t tracker:axiom .
 docker build -f Dockerfile_axiom_native -t tracker:native .
 ```
 
-### 5. Vanilla (debian:bookworm-slim) Native Image Kit (NIK)
+### 5. Vanilla (debian:bookworm-slim) Native
 Сравнение с эталонным GraalVM на базе GLIBC (Debian Slim).
 - **Build Metrics**: ~16.8 мин (в 1.7 раза медленнее Axiom).
 - **Startup**: **0.435s** (Агрессивная оптимизация ценой времени сборки).
