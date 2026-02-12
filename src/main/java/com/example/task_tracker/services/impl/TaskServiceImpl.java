@@ -2,12 +2,16 @@ package com.example.task_tracker.services.impl;
 
 import com.example.task_tracker.entity.Task;
 import com.example.task_tracker.entity.User;
+import com.example.task_tracker.mapper.v1.TaskMapper;
 import com.example.task_tracker.repository.TaskRepository;
+import com.example.task_tracker.security.AppUserPrincipal;
 import com.example.task_tracker.services.TaskService;
 import com.example.task_tracker.services.UserService;
-import com.example.task_tracker.utils.BeanUtils;
+import com.example.task_tracker.web.dto.v1.TaskUpsertRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
@@ -26,6 +30,8 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
 
     private final UserService userService;
+
+    private final TaskMapper taskMapper;
 
     @Override
     public Flux<Task> findAll() {
@@ -68,27 +74,30 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public Mono<Task> save(Task task) {
-        userService.findById(task.getAuthorId());
-        return taskRepository.save(task);
+        return ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication)
+                .map(auth -> (AppUserPrincipal) auth.getPrincipal())
+                .flatMap(principal -> {
+                    task.setAuthorId(principal.getId());
+                    return taskRepository.save(task);
+                });
     }
 
     @Override
-    public Mono<Task> update(Task task) {
-        return findById(task.getId())
+    public Mono<Task> update(String taskId, TaskUpsertRequest request) {
+        return taskRepository.findById(taskId)
                 .switchIfEmpty(Mono.error(
                         new ResponseStatusException(HttpStatus.NOT_FOUND,
                                 "Entity not found!")))
                 .flatMap(taskForUpdate -> {
-                    BeanUtils.copyNonNullProperties(task,
-                            taskForUpdate);
-
-                    return save(taskForUpdate);
+                    taskMapper.updateTask(request, taskForUpdate);
+                    return taskRepository.save(taskForUpdate);
                 });
     }
 
     @Override
     public Mono<Task> addObserver(String taskId, String observerId) {
-        return findById(taskId)
+        return taskRepository.findById(taskId)
                 .switchIfEmpty(Mono.error(
                         new ResponseStatusException(HttpStatus.NOT_FOUND,
                                 "Entity not found!")))
@@ -102,7 +111,7 @@ public class TaskServiceImpl implements TaskService {
                     updatedIds.add(observerId);
                     task.setObserverIds(updatedIds);
 
-                    return save(task);
+                    return taskRepository.save(task);
                 });
     }
 

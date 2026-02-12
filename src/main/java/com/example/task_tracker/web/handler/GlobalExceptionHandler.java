@@ -1,5 +1,6 @@
 package com.example.task_tracker.web.handler;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.boot.autoconfigure.web.reactive.error.AbstractErrorWebExceptionHandler;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
@@ -13,8 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.*;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @Order(-2)
 @Component
 public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
@@ -36,15 +39,19 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
     }
 
     private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
-        Map<String, Object> errorProperties =
-                getErrorAttributes(request,
-                        ErrorAttributeOptions.defaults());
+        Map<String, Object> errorProperties = new LinkedHashMap<>(16);
+
+        errorProperties.putAll(getErrorAttributes(request,
+                ErrorAttributeOptions.defaults()));
 
         int status =
                 (int) errorProperties.getOrDefault("status", 500);
 
         return ServerResponse.status(status)
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(errorProperties);
+                .bodyValue(errorProperties)
+                .doOnNext(resp -> log.error("Ошибка запроса: [{}]: {}",
+                        status,
+                        errorProperties));
     }
 }

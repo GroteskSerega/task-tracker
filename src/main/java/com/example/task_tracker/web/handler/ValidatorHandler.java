@@ -1,12 +1,14 @@
 package com.example.task_tracker.web.handler;
 
+import com.example.task_tracker.exception.ValidationException;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -16,18 +18,24 @@ public class ValidatorHandler {
     private final Validator validator;
 
     public <T> Mono<T> validate(T body) {
-        var violations = validator.validate(body);
+        return Mono.fromCallable(() -> {
+                    var violations = validator.validate(body);
 
-        if (violations.isEmpty()) {
-            return Mono.just(body);
-        }
+                    if (violations.isEmpty()) {
+                        return body;
+                    }
 
-        String msg = violations
+                    throw new ValidationException(buildErrorMessage(violations));
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private String buildErrorMessage(Set<? extends ConstraintViolation<?>> violations) {
+        return violations
                 .stream()
                 .map(v ->
-                        v.getPropertyPath() + ": " + v.getMessage())
+                        v.getPropertyPath() + ": " +
+                                v.getMessage())
                 .collect(Collectors.joining("; "));
-
-        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, msg));
     }
 }
