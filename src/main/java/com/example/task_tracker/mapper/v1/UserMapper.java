@@ -4,15 +4,13 @@ import com.example.task_tracker.entity.User;
 import com.example.task_tracker.web.dto.v1.UserListResponse;
 import com.example.task_tracker.web.dto.v1.UserResponse;
 import com.example.task_tracker.web.dto.v1.UserUpsertRequest;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE)
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface UserMapper {
 
     User requestToUser(UserUpsertRequest request);
@@ -23,13 +21,15 @@ public interface UserMapper {
     UserResponse userToResponse(User user);
 
     default UserListResponse userListToUserListResponse(List<User> users) {
-        UserListResponse response = new UserListResponse();
-
-        response.setUsers(users
+        return new UserListResponse(users
                 .stream()
                 .map(this::userToResponse)
-                .collect(Collectors.toList()));
-
-        return response;
+                .toList());
     }
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "username", ignore = true)
+    @Mapping(target = "password", ignore = true)
+    @Mapping(target = "roles", ignore = true)
+    void updateUser(UserUpsertRequest request, @MappingTarget User user);
 }

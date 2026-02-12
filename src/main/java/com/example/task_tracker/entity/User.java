@@ -1,12 +1,15 @@
 package com.example.task_tracker.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Data
+import java.util.HashSet;
+import java.util.Set;
+
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "user")
@@ -17,5 +20,10 @@ public class User {
 
     private String username;
 
+    private String password;
+
     private String email;
+
+    @Field("roles")
+    private Set<RoleType> roles = new HashSet<>();
 }

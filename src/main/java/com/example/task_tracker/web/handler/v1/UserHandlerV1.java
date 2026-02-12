@@ -1,5 +1,9 @@
 package com.example.task_tracker.web.handler.v1;
 
+import com.example.task_tracker.aop.AuthoriseUsernameForUserUpdateAndDelete;
+import com.example.task_tracker.entity.RoleType;
+import com.example.task_tracker.entity.User;
+import com.example.task_tracker.exception.ValidationException;
 import com.example.task_tracker.mapper.v1.UserMapper;
 import com.example.task_tracker.services.UserService;
 import com.example.task_tracker.web.dto.v1.UserResponse;
@@ -11,9 +15,10 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
-import java.net.URI;
+import java.util.Collections;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -44,37 +49,65 @@ public class UserHandlerV1 {
     }
 
     public Mono<ServerResponse> createUser(ServerRequest serverRequest) {
-        return serverRequest.bodyToMono(UserUpsertRequest.class)
-                .flatMap(validatorHandler::validate)
-                .map(userMapper::requestToUser)
-                .flatMap(userService::save)
-                .flatMap(user ->
-                        ServerResponse.created(URI.create("/api/v1/user/" +
-                                        user.getId()))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .build());
+        return extractRole(serverRequest)
+                .flatMap(roleFromParam ->
+                        serverRequest.bodyToMono(UserUpsertRequest.class)
+                                .flatMap(validatorHandler::validate)
+                                .map(request -> {
+                                    User user = userMapper.requestToUser(request);
+                                    user.setRoles(Collections.singleton(roleFromParam));
+                                    return user;
+                                })
+                                .flatMap(userService::save)
+                                .flatMap(user -> {
+                                    var location = UriComponentsBuilder.fromPath("/api/v1/user/{id}")
+                                            .buildAndExpand(user.getId())
+                                            .toUri();
+
+                                    return ServerResponse.created(location)
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .build();
+                                }));
     }
 
+    @AuthoriseUsernameForUserUpdateAndDelete
     public Mono<ServerResponse> updateUser(ServerRequest serverRequest) {
-        return serverRequest.bodyToMono(UserUpsertRequest.class)
-                .flatMap(validatorHandler::validate)
-                .map(request ->
-                        userMapper.requestToUser(serverRequest.pathVariable("id"),
-                                request))
-                .flatMap(userService::update)
-                .flatMap(user ->
-                        ServerResponse.ok()
-                                .header("Location", "/api/v1/user/" +
-                                        serverRequest.pathVariable("id"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .build());
+        return extractRole(serverRequest)
+                .flatMap(roleFromParam ->
+                        serverRequest.bodyToMono(UserUpsertRequest.class)
+                                .flatMap(validatorHandler::validate)
+                                .flatMap(request -> userService.update(serverRequest.pathVariable("id"),
+                                            request,
+                                            roleFromParam)
+                                )
+                                .flatMap(user -> {
+                                    var location =
+                                            UriComponentsBuilder.fromPath("/api/v1/user/{id}")
+                                                    .buildAndExpand(user.getId())
+                                                    .toUri();
+
+                                    return ServerResponse.ok()
+                                            .header("Location",
+                                                    location.toString())
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .build();
+                                }));
     }
 
+    @AuthoriseUsernameForUserUpdateAndDelete
     public Mono<ServerResponse> deleteUser(ServerRequest serverRequest) {
         return ServerResponse.noContent()
                 .build(userService.deleteById(
                         serverRequest.pathVariable("id")
                         )
                 );
+    }
+
+    private Mono<RoleType> extractRole(ServerRequest request) {
+        return Mono.justOrEmpty(request.queryParam("role"))
+                .map(RoleType::valueOf)
+                .switchIfEmpty(Mono.error(new ValidationException("Query parameter 'role' is required")))
+                .onErrorResume(IllegalArgumentException.class, e ->
+                        Mono.error(new ValidationException("Invalid role type: " + e.getMessage())));
     }
 }

@@ -4,15 +4,13 @@ import com.example.task_tracker.entity.Task;
 import com.example.task_tracker.web.dto.v1.TaskListResponse;
 import com.example.task_tracker.web.dto.v1.TaskResponse;
 import com.example.task_tracker.web.dto.v1.TaskUpsertRequest;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE)
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface TaskMapper {
 
     Task requestToTask(TaskUpsertRequest request);
@@ -23,13 +21,19 @@ public interface TaskMapper {
     TaskResponse taskToResponse(Task task);
 
     default TaskListResponse taskListToTaskListResponse(List<Task> tasks) {
-        TaskListResponse response = new TaskListResponse();
-
-        response.setTasks(tasks
+        return new TaskListResponse(tasks
                 .stream()
                 .map(this::taskToResponse)
-                .collect(Collectors.toList()));
-
-        return response;
+                .toList());
     }
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "authorId", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "observerIds", ignore = true)
+    @Mapping(target = "author", ignore = true)
+    @Mapping(target = "assignee", ignore = true)
+    @Mapping(target = "observers", ignore = true)
+    void updateTask(TaskUpsertRequest request, @MappingTarget Task task);
 }
