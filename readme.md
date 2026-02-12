@@ -78,7 +78,7 @@ docker build -t tracker:layers .
 docker build -f Dockerfile_fat_jar -t tracker:fat .
 ```
 
-### 3. Axiom (Alpaquita + Musl) - Самый интересный
+### 3. Axiom (Alpaquita + Musl)
 Оптимизированная слоеная сборка на базе Axiom образа. Разделение зависимостей и прикладного кода позволяет эффективно использовать Docker Cache, минимизируя трафик при CI/CD.
 - **Base Image**: `bellsoft/liberica-runtime-alpine` (или Alpaquita).
 - **Benefit**: Баланс между скоростью сборки и эффективностью кеширования.
